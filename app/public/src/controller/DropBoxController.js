@@ -7,6 +7,7 @@ class DropBoxController{
 
             this.onselectionchange = new Event('selectionchange');
 
+            this.navEl=docment.querySelector('#browse-location')
             this.btnSendFileEl = document.querySelector('#btn-send-file');// chama a id do botão "enviar arquivos"
             this.inputFilesEl = document.querySelector('#files');// chama o meio de buscar arquivos no combutador através do "enviar arquivos"
             this.snackModelEl    = document.querySelector('#react-snackbar-root');// chama meio css para aparecer o carregamento do upload na tela
@@ -21,7 +22,9 @@ class DropBoxController{
 
             this.initEvents();// inicia os codigos do metodo 
             this.connectFirebase();// chama metodo de iniciar o firebase
-            this.readFiles(); 
+            this.openFolder();
+            
+            
         }
 
 
@@ -67,9 +70,13 @@ class DropBoxController{
 
 
         }
+
+
+
         // agrupa eventos 
         initEvents(){
 
+          
           this.btnNewFolder.addEventListener('click', e=>{
              
             let name = prompt('nome da nova pasta:');
@@ -171,8 +178,11 @@ class DropBoxController{
           }
 
         // obtem a referencia do caminho do arquivo no fire base
-        getFirebaseRef(){
-            return firebase.database().ref('files')
+        getFirebaseRef(path){
+
+          if(!path) path = this.currentFolder.join('/');
+
+            return firebase.database().ref(path)
         }
 
 
@@ -474,6 +484,8 @@ getFileIconView(file) {
 
   readFiles(){
 
+    this.lastFolder = this,this.currentFolder.join('/');
+
     this.getFirebaseRef().on('value', snapshot =>{
 
         this.listFilesEl.innerHTML = '';
@@ -482,23 +494,66 @@ getFileIconView(file) {
              
             let key = snapshotItem.key;
             let data = snapshotItem.val();
-            console.log("111111")
+            
+            if (data.type){
 
-            console.log(data)
+              this.listFilesEl.appendChild(this.getFileView(data, key))
+
+            }
+
+            
 
 
-            this.listFilesEl.appendChild(this.getFileView(data, key))
-
-
-        })
+        });
 
 
     })
 
 }
+
+
+openFolder(){
+
+  if(this.lastFolder) this.getFirebaseRef(this.lastFolder).off('value');
+
+  this.renderNav();
+  this.readFiles(); 
+
+}
+
+renderNav(){
+  let nav = document.createElement('nav');
+  for (let i = 0; < this.currentFolder.length ; i++) {
+
+
+  }
+
+
+
+}
+
+
+
 // metodo para adicionar o padrao ctrl e shift nos meios de seleção 
 
 initEventsLi(li) {
+
+  li.addEventListener('dblclick', e=>{
+
+    let file = JSON.parse(li.dataset.file);
+
+    switch(file.type){
+
+      case 'folder': 
+      this.openFolder();
+      break;
+
+    default:
+      window.open('/file?path=' + file.path);
+
+    }
+  });
+
     li.addEventListener('click', e => {
 
       if (e.shiftKey) {

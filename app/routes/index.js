@@ -54,7 +54,6 @@ router.delete('/file', (req, res)=>{
 
 
 
-
 //adiciona rota no servidor para o upload
 router.post('/upload', (req, res)=>{
 
