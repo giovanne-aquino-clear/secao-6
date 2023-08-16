@@ -7,7 +7,7 @@ class DropBoxController{
 
             this.onselectionchange = new Event('selectionchange');
 
-            this.navEl=docment.querySelector('#browse-location')
+            this.navEl = document.querySelector('#browse-location');
             this.btnSendFileEl = document.querySelector('#btn-send-file');// chama a id do botão "enviar arquivos"
             this.inputFilesEl = document.querySelector('#files');// chama o meio de buscar arquivos no combutador através do "enviar arquivos"
             this.snackModelEl    = document.querySelector('#react-snackbar-root');// chama meio css para aparecer o carregamento do upload na tela
@@ -118,8 +118,21 @@ class DropBoxController{
 
                 }).catch(err=>{
                   console.log(err);
-                })
-            })
+                });
+            });
+
+            this.btnRename.addEventListener("click", (e) => {
+              let li = this.getSelection()[0];
+              let file = JSON.parse(li.dataset.file);
+        
+              let name = prompt("Renomar o arquivo:", file.name);
+        
+              if (name) {
+                file.name = name;
+        
+                this.getFirebaseRef().child(li.dataset.key).set(file);
+              }
+            });
 
                 this.listFilesEl.addEventListener('selectionchange', e => {
       
@@ -162,7 +175,7 @@ class DropBoxController{
 
                 }).catch(err => {
                   this.uploadComplete()
-                  console.error(err)
+                  console.log(err)
                 })
                 
                 this.modalShow();
@@ -220,7 +233,7 @@ class DropBoxController{
                         // mostra resposta constante do progresso de upload
                     ajax.upload.onprogress = onprogress;
                     onloadstart();
-                    ajax.send(formData)
+                    ajax.send(formData);
 
             });
 
@@ -484,30 +497,75 @@ getFileIconView(file) {
 
   readFiles(){
 
-    this.lastFolder = this,this.currentFolder.join('/');
+    this.lastFolder = this.currentFolder.join('/');
 
-    this.getFirebaseRef().on('value', snapshot =>{
+    this.getFirebaseRef().on("value", (snapshot) => {
+      this.listFilesEl.innerHTML = "";
+      snapshot.forEach((snapshotItem) => {
+        let key = snapshotItem.key;
+        let data = snapshotItem.val();
 
-        this.listFilesEl.innerHTML = '';
+        data = this.getDataType(data)
+        if (data!= undefined) {
+          this.listFilesEl.appendChild(this.getFileView(data, key));
+        }
 
-        snapshot.forEach(snapshotItem => {
-             
-            let key = snapshotItem.key;
-            let data = snapshotItem.val();
-            
-            if (data.type){
-
-              this.listFilesEl.appendChild(this.getFileView(data, key))
-
-            }
-
-            
+      });
+    });
+  }
 
 
-        });
+          
 
 
+    
+
+
+
+
+
+renderNav() {
+
+  let nav = document.createElement('nav')
+  let path = [];
+
+  for (let i = 0; i < this.currentFolder.length; i++) {
+    let folderName= this.currentFolder[i];
+    let span = document.createElement('span');
+
+    path.push(folderName);
+
+    if ((i+1) === this.currentFolder.length) {
+
+      span.innerHTML = folderName;
+
+    } else {
+      span.className = 'breadcrumb-segment__wrapper'
+      span.innerHTML = `
+        <span class="ue-effect-container uee-BreadCrumbSegment-link-0">
+          <a href="#" data-path="${path.join('/')}" class="breadcrumb-segment">${folderName}</a>
+        </span>
+        <svg width="24" height="24" viewBox="0 0 24 24" class="mc-icon-template-stateless" style="top: 4px; position: relative;">
+          <title>arrow-right</title>
+          <path d="M10.414 7.05l4.95 4.95-4.95 4.95L9 15.534 12.536 12 9 8.464z" fill="#637282" fill-rule="evenodd"></path>
+        </svg>
+      `
+    }
+
+    nav.appendChild(span);
+  }
+
+  this.navEl.innerHTML = nav.innerHTML;
+
+  this.navEl.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+
+      this.currentFolder = a.dataset.path.split('/');
+
+      this.openFolder()
     })
+  })
 
 }
 
@@ -521,39 +579,27 @@ openFolder(){
 
 }
 
-renderNav(){
-  let nav = document.createElement('nav');
-  for (let i = 0; < this.currentFolder.length ; i++) {
-
-
-  }
-
-
-
-}
-
-
 
 // metodo para adicionar o padrao ctrl e shift nos meios de seleção 
 
 initEventsLi(li) {
 
-  li.addEventListener('dblclick', e=>{
+  li.addEventListener('dblclick', e => {
 
     let file = JSON.parse(li.dataset.file);
 
-    switch(file.type){
+    switch (file.type) {
+      case 'folder':
+        this.currentFolder.push(file.name)
+        this.openFolder()
+        break;
 
-      case 'folder': 
-      this.openFolder();
-      break;
-
-    default:
-      window.open('/file?path=' + file.path);
-
+      default:
+        window.open('/file?path=' + file.path)
     }
-  });
 
+  })
+    
     li.addEventListener('click', e => {
 
       if (e.shiftKey) {
