@@ -3,6 +3,8 @@ class DropBoxController{
 
         constructor() {
 
+            this.currentFolder = ['hcode'];
+
             this.onselectionchange = new Event('selectionchange');
 
             this.btnSendFileEl = document.querySelector('#btn-send-file');// chama a id do botão "enviar arquivos"
@@ -43,8 +45,74 @@ class DropBoxController{
         getSelection() {
             return this.listFilesEl.querySelectorAll('.selected');
         }
+
+        removeTask(){
+
+          let promises =[];
+          this.getSelection().forEach(li=>{
+
+            let file = JSON.parse(li.dataset.file);
+            let key =  li.dataset.key;
+             
+            let formData = new FormData();
+            formData.append('path',file.path);
+            formData.append('key', key );
+
+            promises.push(this.ajax('/file', 'DELETE',formData));
+ 
+
+    
+          });
+          return Promise.all(promises);
+
+
+        }
         // agrupa eventos 
         initEvents(){
+
+          this.btnNewFolder.addEventListener('click', e=>{
+             
+            let name = prompt('nome da nova pasta:');
+
+              if (name){
+
+                this.getFirebaseRef().push().set({
+
+                  name,
+                  type:'folder',
+                  path: this.currentFolder.join('/')
+
+
+                })
+              }
+          });
+
+            this.btnDelete.addEventListener('click', (e) => {
+
+              console.log(this.btnDelete)
+                this.removeTask().then((responses)=>{
+
+
+
+                  responses.forEach(response=>{
+                    response.fields.key = response.fields.key.toString()
+                    
+                    if(response.fields.key){
+
+                      this.getFirebaseRef().child
+                      (response.fields.key).remove();
+                       
+
+                    }
+
+                  })
+
+                  console.log('responses');
+
+                }).catch(err=>{
+                  console.log(err);
+                })
+            })
 
                 this.listFilesEl.addEventListener('selectionchange', e => {
       
@@ -112,20 +180,13 @@ class DropBoxController{
             this.snackModelEl   .style.display = (show) ? "block" : "none"
           }
 
-        // recebe arquivos para upload
-        uploadTask(files){
+          ajax(url, method = 'GET',formData = new FormData(), onprogress = function(){}, onloadstart= function(){}){
 
-            let promises = []; // gera "coleção" para receber os arquivos como promessas com a possibilidade de sucesso e falha no upload
-            
-            
-            [...files].forEach(file => { // le cada posição do vetor de arquivos 
+            return new Promise((resolve,reject)=>{
 
+              let ajax = new XMLHttpRequest();
 
-                promises.push(new Promise((resolve,reject)=> { // cria um promise para cada arquivo e informa se o upload falhou ou não
-
-                    let ajax = new XMLHttpRequest();
-
-                    ajax.open('POST', '/upload')// abre conexão via POST e manda para a pasta upload
+                    ajax.open(method, url);
                     
 
                     // faz o envio via ajax com sucesso ou não
@@ -147,28 +208,41 @@ class DropBoxController{
 
                     }                 
                         // mostra resposta constante do progresso de upload
-                    ajax.upload.onprogress = event => {
-                        this.uploadProgress(event, file)
-                    }
-
-
-                    let formData = new FormData();
-
-                    formData.append('input-file', file)
-
-                    this.startUploadTime = Date.now();
-
+                    ajax.upload.onprogress = onprogress;
+                    onloadstart();
                     ajax.send(formData)
 
-            }));
+            });
 
-            })
+          }
 
+        // recebe arquivos para upload  
+        uploadTask(files){
 
-            return Promise.all(promises) // recebe o vetor de promises e funciona como promisse normal, as que derem certo retornam resolve as que não derem retornam reject 
-       
-       
-       
+            let promises = []; // gera "coleção" para receber os arquivos como promessas com a possibilidade de sucesso e falha no upload
+            
+            
+            [...files].forEach(file => { // le cada posição do vetor de arquivos 
+
+              let formData = new FormData();
+
+              formData.append('input-file', file)
+
+              promises.push(this.ajax('/upload', 'POST',formData, ()=> {
+                  
+                this.uploadProgress( event, file);
+              
+              }, ()=>{
+
+                this.startUploadTime = Date.now();
+              })) ;
+                  
+                  
+
+            });
+
+            return Promise.all(promises); // recebe o vetor de promises e funciona como promisse normal, as que derem certo retornam resolve as que não derem retornam reject 
+
         }
 
         uploadProgress(event,file){// mostra progresso do upload 
