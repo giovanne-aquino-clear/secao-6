@@ -133,7 +133,7 @@ class DropBoxController{
           return fileRef.delete();
             
         }
-        
+
         // agrupa eventos 
         initEvents(){
 
@@ -662,7 +662,7 @@ initEventsLi(li) {
         break;
 
       default:
-        window.open('/file?path=' + file.path)
+        window.open(file.path)
     }
 
   })
