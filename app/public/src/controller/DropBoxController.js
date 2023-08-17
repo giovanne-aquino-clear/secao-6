@@ -49,26 +49,30 @@ class DropBoxController{
             return this.listFilesEl.querySelectorAll('.selected');
         }
 
-        removeTask(){
-
-          let promises =[];
-          this.getSelection().forEach(li=>{
-
+        removeTask() {
+          let promises = [];
+      
+          this.getSelection().forEach((li) => {
             let file = JSON.parse(li.dataset.file);
-            let key =  li.dataset.key;
-             
-            let formData = new FormData();
-            formData.append('path',file.path);
-            formData.append('key', key );
-
-            promises.push(this.ajax('/file', 'DELETE',formData));
- 
-
-    
+            let key = li.dataset.key;
+      
+            promises.push(new Promise((resolve, reject) => {
+              let fileRef = firebase.storage().ref(this.currentFolder.join('/')).child(file.name);
+      
+              fileRef.delete().then(() => {
+                resolve({
+                  fields: {
+                    key
+                  }
+                });
+              }).catch(err => {
+                reject(err);
+              });
+            }));
+      
           });
+          
           return Promise.all(promises);
-
-
         }
 
 
@@ -163,13 +167,25 @@ class DropBoxController{
 
                 // faz a leitura de cada arquivo via promise e envia para o firebase
                 this.uploadTask(event.target.files).then(responses =>{
+                  
+                  console.log('responses') 
+                      console.log(typeof responses)
+                      console.log(responses)
+
                     responses.forEach(resp => {
 
-                        console.log(resp.files['input-file']);
+                      
+                      console.log('resp')
+                      console.log(resp  )
                     
-                        this.getFirebaseRef().push().set(resp.files['input-file']);
+                        this.getFirebaseRef().push().set({
+                              name: resp.name,
+                              type: resp.contentType,
+                              path: resp.customMetadata.downloadURL,   
+                              size: resp.size 
+                        });
 
-                    });
+                    }); 
 
                 this.uploadComplete()
 
@@ -240,34 +256,38 @@ class DropBoxController{
           }
 
         // recebe arquivos para upload  
-        uploadTask(files){
-
-            let promises = []; // gera "coleção" para receber os arquivos como promessas com a possibilidade de sucesso e falha no upload
-            
-            
-            [...files].forEach(file => { // le cada posição do vetor de arquivos 
-
-              let formData = new FormData();
-
-              formData.append('input-file', file)
-
-              promises.push(this.ajax('/upload', 'POST',formData, ()=> {
-                  
-                this.uploadProgress( event, file);
-              
-              }, ()=>{
-
-                this.startUploadTime = Date.now();
-              })) ;
-                  
-                  
-
-            });
-
-            return Promise.all(promises); // recebe o vetor de promises e funciona como promisse normal, as que derem certo retornam resolve as que não derem retornam reject 
-
-        }
-
+        uploadTask(files) {
+          let promises = [];
+          [...files].forEach(file => {
+              promises.push(new Promise((resolve, reject)=> {
+              let fileRef = firebase.storage().ref(this.currentFolder.join('/')).child(file.name);
+              let task = fileRef.put(file)
+              task.on('state_changed',
+                  snapshot =>{
+                      this.uploadProgress({
+                          loaded: snapshot.bytesTransferred,
+                          total: snapshot.totalBytes
+                      }, file)
+                      console.log('progress', snapshot)
+                  },
+                  error =>{
+                      console.error(error)
+                      reject(error);
+                  },
+                  () => {
+                      task.snapshot.ref.getDownloadURL().then(downloadURL => {
+                          task.snapshot.ref.updateMetadata({customMetadata: {downloadURL}}).then(metadata => {
+                              resolve(metadata);
+                          }).catch(error => {
+                              console.error('Error update metadata', error);
+                              reject(error);
+                          })
+                      })
+                  })
+                  }))
+          })
+          return Promise.all(promises)
+      }
         uploadProgress(event,file){// mostra progresso do upload 
              
             let timespent = Date.now() - this.startUploadTime;
@@ -513,16 +533,6 @@ getFileIconView(file) {
       });
     });
   }
-
-
-          
-
-
-    
-
-
-
-
 
 renderNav() {
 
